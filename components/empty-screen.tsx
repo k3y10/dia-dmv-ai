@@ -22,7 +22,7 @@ export function EmptyScreen() {
           </Link>
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          Stay updated and be among the first to explore DIA-DMV-AI's capabilities.
+          Stay updated and be among the first to explore DIA-DMV-AI capabilities.
         </p>
         <p className="text-xs text-muted-foreground mt-2">
           Learn more about DIA-DMV-AI on{' '}
