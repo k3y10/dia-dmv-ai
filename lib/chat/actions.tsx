@@ -14,17 +14,16 @@ import {
   spinner,
   BotCard,
   BotMessage,
-  SystemMessage,
-  Stock,
-  Purchase
-} from '@/components/stocks'
+  SystemMessage
+} from '@/components/blood-sugar'
+
+import BloodSugar from '@/components/blood-sugar/blood-sugar'
+import BloodSugarEntry from '@/components/blood-sugar/blood-sugar-entry'
 
 import { z } from 'zod'
-import { EventsSkeleton } from '@/components/stocks/events-skeleton'
-import { Events } from '@/components/stocks/events'
-import { StocksSkeleton } from '@/components/stocks/stocks-skeleton'
-import { Stocks } from '@/components/stocks/stocks'
-import { StockSkeleton } from '@/components/stocks/stock-skeleton'
+import { EventsSkeleton } from '@/components/blood-sugar/events-skeleton'
+import { Events } from '@/components/blood-sugar/events'
+import { BloodSugarSkeleton } from '@/components/blood-sugar/blood-sugar-skeleton'
 import {
   formatNumber,
   runAsyncFnWithoutBlocking,
@@ -32,20 +31,20 @@ import {
   nanoid
 } from '@/lib/utils'
 import { saveChat } from '@/app/actions'
-import { SpinnerMessage, UserMessage } from '@/components/stocks/message'
+import { SpinnerMessage, UserMessage } from '@/components/blood-sugar/message'
 import { Chat } from '@/lib/types'
 import { auth } from '@/auth'
 
-async function confirmPurchase(symbol: string, price: number, amount: number) {
+async function confirmBloodSugarEntry(level: number, time: string) {
   'use server'
 
   const aiState = getMutableAIState<typeof AI>()
 
-  const purchasing = createStreamableUI(
+  const logging = createStreamableUI(
     <div className="inline-flex items-start gap-1 md:items-center">
       {spinner}
       <p className="mb-2">
-        Purchasing {amount} ${symbol}...
+        Logging blood sugar level {level} mg/dL at {time}...
       </p>
     </div>
   )
@@ -55,30 +54,28 @@ async function confirmPurchase(symbol: string, price: number, amount: number) {
   runAsyncFnWithoutBlocking(async () => {
     await sleep(1000)
 
-    purchasing.update(
+    logging.update(
       <div className="inline-flex items-start gap-1 md:items-center">
         {spinner}
         <p className="mb-2">
-          Purchasing {amount} ${symbol}... working on it...
+          Logging blood sugar level {level} mg/dL at {time}... working on it...
         </p>
       </div>
     )
 
     await sleep(1000)
 
-    purchasing.done(
+    logging.done(
       <div>
         <p className="mb-2">
-          You have successfully purchased {amount} ${symbol}. Total cost:{' '}
-          {formatNumber(amount * price)}
+          You have successfully logged blood sugar level {level} mg/dL at {time}.
         </p>
       </div>
     )
 
     systemMessage.done(
       <SystemMessage>
-        You have purchased {amount} shares of {symbol} at ${price}. Total cost ={' '}
-        {formatNumber(amount * price)}.
+        Blood sugar level {level} mg/dL at {time} has been logged successfully.
       </SystemMessage>
     )
 
@@ -89,27 +86,24 @@ async function confirmPurchase(symbol: string, price: number, amount: number) {
         {
           id: nanoid(),
           role: 'function',
-          name: 'showStockPurchase',
+          name: 'showBloodSugarEntry',
           content: JSON.stringify({
-            symbol,
-            price,
-            defaultAmount: amount,
+            level,
+            time,
             status: 'completed'
           })
         },
         {
           id: nanoid(),
           role: 'system',
-          content: `[User has purchased ${amount} shares of ${symbol} at ${price}. Total cost = ${
-            amount * price
-          }]`
+          content: `[User has logged blood sugar level ${level} mg/dL at ${time}.]`
         }
       ]
     })
   })
 
   return {
-    purchasingUI: purchasing.value,
+    loggingUI: logging.value,
     newMessage: {
       id: nanoid(),
       display: systemMessage.value
@@ -141,18 +135,18 @@ async function submitUserMessage(content: string) {
     model: openai('gpt-3.5-turbo'),
     initial: <SpinnerMessage />,
     system: `\
-    You are a stock trading conversation bot and you can help users buy stocks, step by step.
-    You and the user can discuss stock prices and the user can adjust the amount of stocks they want to buy, or place an order, in the UI.
+    You are a diabetic management conversation bot and you can help users monitor and log their blood sugar levels, step by step.
+    You and the user can discuss blood sugar levels and the user can log their readings, or view trends, in the UI.
     
     Messages inside [] means that it's a UI element or a user event. For example:
-    - "[Price of AAPL = 100]" means that an interface of the stock price of AAPL is shown to the user.
-    - "[User has changed the amount of AAPL to 10]" means that the user has changed the amount of AAPL to 10 in the UI.
+    - "[Blood sugar level at 9 AM = 110 mg/dL]" means that an interface of the blood sugar level at 9 AM is shown to the user.
+    - "[User has logged a blood sugar level of 110 mg/dL at 9 AM]" means that the user has logged a blood sugar level of 110 mg/dL at 9 AM in the UI.
     
-    If the user requests purchasing a stock, call \`show_stock_purchase_ui\` to show the purchase UI.
-    If the user just wants the price, call \`show_stock_price\` to show the price.
-    If you want to show trending stocks, call \`list_stocks\`.
+    If the user requests logging a blood sugar level, call \`show_blood_sugar_entry_ui\` to show the logging UI.
+    If the user just wants the trend, call \`show_blood_sugar_trend\` to show the trend.
+    If you want to show trending blood sugar levels, call \`list_trends\`.
     If you want to show events, call \`get_events\`.
-    If the user wants to sell stock, or complete another impossible task, respond that you are a demo and cannot do that.
+    If the user wants to log an impossible level, respond that it is not valid.
     
     Besides that, you can also chat with users and do some calculations if needed.`,
     messages: [
@@ -188,21 +182,21 @@ async function submitUserMessage(content: string) {
       return textNode
     },
     tools: {
-      listStocks: {
-        description: 'List three imaginary stocks that are trending.',
+      listTrends: {
+        description: 'List three imaginary blood sugar trends that are notable.',
         parameters: z.object({
-          stocks: z.array(
+          trends: z.array(
             z.object({
-              symbol: z.string().describe('The symbol of the stock'),
-              price: z.number().describe('The price of the stock'),
-              delta: z.number().describe('The change in price of the stock')
+              time: z.string().describe('The time of the trend'),
+              level: z.number().describe('The blood sugar level at the time'),
+              delta: z.number().describe('The change in blood sugar level')
             })
           )
         }),
-        generate: async function* ({ stocks }) {
+        generate: async function* ({ trends }) {
           yield (
             <BotCard>
-              <StocksSkeleton />
+              <BloodSugarSkeleton />
             </BotCard>
           )
 
@@ -215,35 +209,35 @@ async function submitUserMessage(content: string) {
               {
                 id: nanoid(),
                 role: 'function',
-                name: 'listStocks',
-                content: JSON.stringify(stocks)
+                name: 'listTrends',
+                content: JSON.stringify(trends)
               }
             ]
           })
 
           return (
             <BotCard>
-              <Stocks props={stocks} />
+              <BloodSugar value={110} />
             </BotCard>
           )
         }
       },
-      showStockPrice: {
+      showBloodSugarLevel: {
         description:
-          'Get the current stock price of a given stock or currency. Use this to show the price to the user.',
+          'Get the current blood sugar level of a given time. Use this to show the level to the user.',
         parameters: z.object({
-          symbol: z
+          time: z
             .string()
             .describe(
-              'The name or symbol of the stock or currency. e.g. DOGE/AAPL/USD.'
+              'The time of the blood sugar level reading. e.g. "9 AM"'
             ),
-          price: z.number().describe('The price of the stock.'),
-          delta: z.number().describe('The change in price of the stock')
+          level: z.number().describe('The blood sugar level.'),
+          delta: z.number().describe('The change in blood sugar level')
         }),
-        generate: async function* ({ symbol, price, delta }) {
+        generate: async function* ({ time, level, delta }) {
           yield (
             <BotCard>
-              <StockSkeleton />
+              <BloodSugarSkeleton />
             </BotCard>
           )
 
@@ -256,37 +250,37 @@ async function submitUserMessage(content: string) {
               {
                 id: nanoid(),
                 role: 'function',
-                name: 'showStockPrice',
-                content: JSON.stringify({ symbol, price, delta })
+                name: 'showBloodSugarLevel',
+                content: JSON.stringify({ time, level, delta })
               }
             ]
           })
 
           return (
             <BotCard>
-              <Stock props={{ symbol, price, delta }} />
+              <BloodSugarEntry time="9 AM" level={110} status="completed" />
             </BotCard>
           )
         }
       },
-      showStockPurchase: {
+      showBloodSugarEntry: {
         description:
-          'Show price and the UI to purchase a stock or currency. Use this if the user wants to purchase a stock or currency.',
+          'Show the UI to log a blood sugar level reading. Use this if the user wants to log a blood sugar level reading.',
         parameters: z.object({
-          symbol: z
+          time: z
             .string()
             .describe(
-              'The name or symbol of the stock or currency. e.g. DOGE/AAPL/USD.'
+              'The time of the blood sugar level reading. e.g. "9 AM"'
             ),
-          price: z.number().describe('The price of the stock.'),
-          numberOfShares: z
-            .number()
+          level: z.number().describe('The blood sugar level.'),
+          status: z
+            .string()
             .describe(
-              'The **number of shares** for a stock or currency to purchase. Can be optional if the user did not specify it.'
+              'The status of the entry. Can be "requires_action" or "completed".'
             )
         }),
-        generate: async function* ({ symbol, price, numberOfShares = 100 }) {
-          if (numberOfShares <= 0 || numberOfShares > 1000) {
+        generate: async function* ({ time, level, status = 'requires_action' }) {
+          if (level <= 0 || level > 600) {
             aiState.done({
               ...aiState.get(),
               messages: [
@@ -294,12 +288,12 @@ async function submitUserMessage(content: string) {
                 {
                   id: nanoid(),
                   role: 'system',
-                  content: `[User has selected an invalid amount]`
+                  content: `[User has selected an invalid blood sugar level]`
                 }
               ]
             })
 
-            return <BotMessage content={'Invalid amount'} />
+            return <BotMessage content={'Invalid blood sugar level'} />
           }
 
           aiState.done({
@@ -309,11 +303,11 @@ async function submitUserMessage(content: string) {
               {
                 id: nanoid(),
                 role: 'function',
-                name: 'showStockPurchase',
+                name: 'showBloodSugarEntry',
                 content: JSON.stringify({
-                  symbol,
-                  price,
-                  numberOfShares
+                  time,
+                  level,
+                  status
                 })
               }
             ]
@@ -321,21 +315,14 @@ async function submitUserMessage(content: string) {
 
           return (
             <BotCard>
-              <Purchase
-                props={{
-                  numberOfShares,
-                  symbol,
-                  price: +price,
-                  status: 'requires_action'
-                }}
-              />
+            <BloodSugarEntry time="9 AM" level={110} status="completed" />
             </BotCard>
           )
         }
       },
       getEvents: {
         description:
-          'List funny imaginary events between user highlighted dates that describe stock activity.',
+          'List significant events related to blood sugar levels between specified dates.',
         parameters: z.object({
           events: z.array(
             z.object({
@@ -405,7 +392,7 @@ export type UIState = {
 export const AI = createAI<AIState, UIState>({
   actions: {
     submitUserMessage,
-    confirmPurchase
+    confirmBloodSugarEntry
   },
   initialUIState: [],
   initialAIState: { chatId: nanoid(), messages: [] },
@@ -461,17 +448,17 @@ export const getUIStateFromAIState = (aiState: Chat) => {
       id: `${aiState.chatId}-${index}`,
       display:
         message.role === 'function' ? (
-          message.name === 'listStocks' ? (
+          message.name === 'listTrends' ? (
             <BotCard>
-              <Stocks props={JSON.parse(message.content)} />
+             <BloodSugarEntry time="9 AM" level={110} status="completed" />
             </BotCard>
-          ) : message.name === 'showStockPrice' ? (
+          ) : message.name === 'showBloodSugarLevel' ? (
             <BotCard>
-              <Stock props={JSON.parse(message.content)} />
+             <BloodSugarEntry time="9 AM" level={110} status="completed" />
             </BotCard>
-          ) : message.name === 'showStockPurchase' ? (
+          ) : message.name === 'showBloodSugarEntry' ? (
             <BotCard>
-              <Purchase props={JSON.parse(message.content)} />
+             <BloodSugarEntry time="9 AM" level={110} status="completed" />
             </BotCard>
           ) : message.name === 'getEvents' ? (
             <BotCard>

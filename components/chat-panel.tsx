@@ -1,11 +1,10 @@
 import * as React from 'react'
-
-import { shareChat } from '@/app/actions'
 import { Button } from '@/components/ui/button'
-import { PromptForm } from '@/components/prompt-form'
 import { ButtonScrollToBottom } from '@/components/button-scroll-to-bottom'
 import { IconShare } from '@/components/ui/icons'
-import { FooterText } from '@/components/footer'
+import { PromptForm } from './prompt-form'
+import { FooterText } from './footer'
+import { shareChat } from '@/app/actions'
 import { ChatShareDialog } from '@/components/chat-share-dialog'
 import { useAIState, useActions, useUIState } from 'ai/rsc'
 import type { AI } from '@/lib/chat/actions'
@@ -34,26 +33,26 @@ export function ChatPanel({
   const { submitUserMessage } = useActions()
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false)
 
-  const exampleMessages = [
+  const diabetesPrompts = [
+    {
+      heading: 'How can I',
+      subheading: 'better manage my blood glucose levels?',
+      message: `How can I better manage my blood glucose levels?`
+    },
     {
       heading: 'What are the',
-      subheading: 'trending memecoins today?',
-      message: `What are the trending memecoins today?`
+      subheading: 'best practices for insulin dosage?',
+      message: 'What are the best practices for insulin dosage?'
     },
     {
-      heading: 'What is the price of',
-      subheading: '$DOGE right now?',
-      message: 'What is the price of $DOGE right now?'
+      heading: 'How do I',
+      subheading: 'communicate effectively with my doctor about my diabetes?',
+      message: `How do I communicate effectively with my doctor about my diabetes?`
     },
     {
-      heading: 'I would like to buy',
-      subheading: '42 $DOGE',
-      message: `I would like to buy 42 $DOGE`
-    },
-    {
-      heading: 'What are some',
-      subheading: `recent events about $DOGE?`,
-      message: `What are some recent events about $DOGE?`
+      heading: 'How can I',
+      subheading: 'update my driving record with the DMV?',
+      message: `How can I update my driving record with the DMV?`
     }
   ]
 
@@ -67,9 +66,9 @@ export function ChatPanel({
       <div className="mx-auto sm:max-w-2xl sm:px-4">
         <div className="mb-4 grid grid-cols-2 gap-2 px-4 sm:px-0">
           {messages.length === 0 &&
-            exampleMessages.map((example, index) => (
+            diabetesPrompts.map((prompt, index) => (
               <div
-                key={example.heading}
+                key={prompt.heading}
                 className={`cursor-pointer rounded-lg border bg-white p-4 hover:bg-zinc-50 dark:bg-zinc-950 dark:hover:bg-zinc-900 ${
                   index > 1 && 'hidden md:block'
                 }`}
@@ -78,12 +77,12 @@ export function ChatPanel({
                     ...currentMessages,
                     {
                       id: nanoid(),
-                      display: <UserMessage>{example.message}</UserMessage>
+                      display: <UserMessage>{prompt.message}</UserMessage>
                     }
                   ])
 
                   const responseMessage = await submitUserMessage(
-                    example.message
+                    prompt.message
                   )
 
                   setMessages(currentMessages => [
@@ -92,9 +91,9 @@ export function ChatPanel({
                   ])
                 }}
               >
-                <div className="text-sm font-semibold">{example.heading}</div>
+                <div className="text-sm font-semibold">{prompt.heading}</div>
                 <div className="text-sm text-zinc-600">
-                  {example.subheading}
+                  {prompt.subheading}
                 </div>
               </div>
             ))}

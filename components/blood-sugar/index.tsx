@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import { StockSkeleton } from './stock-skeleton'
-import { StocksSkeleton } from './stocks-skeleton'
+import { BloodSugarSkeleton } from './blood-sugar-skeleton'
 import { EventsSkeleton } from './events-skeleton'
 
 export { spinner } from './spinner'
@@ -25,7 +25,7 @@ const Purchase = dynamic(
 
 const Stocks = dynamic(() => import('./stocks').then(mod => mod.Stocks), {
   ssr: false,
-  loading: () => <StocksSkeleton />
+  loading: () => <BloodSugarSkeleton />
 })
 
 const Events = dynamic(() => import('./events').then(mod => mod.Events), {
